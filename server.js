@@ -21,7 +21,7 @@ let users = [
     { id: 2, username: 'emmang@gmail.com', password: '$2b$10$...', role: 'user' },
 ];
 
-if (!users[0].password.includes('2b')) {
+if (!users[0].password.includes('2a')) {
     users[0].password = bcrypt.hashSync('admin123', 10);
     users[1].password = bcrypt.hashSync('user123', 10);
 }
