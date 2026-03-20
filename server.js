@@ -1,29 +1,35 @@
 // server.js
 const express = require('express');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
 const PORT = 3000;
 const SECRET_KEY = 'your_secret_key';
 
 app.use(cors({
-    origin: ['http://127.0.0.1:5500', 'http://localhost:5500'] // Allow both frontend and backend origins
+    origin: ['http://127.0.0.1:5500', 'http://localhost:5500', 'http://localhost:3000'] // Allow both frontend and backend origins
 }));
-
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
 // In-memory user storage (for demonstration purposes)
 let users = [
-    { id: 1, username: 'admin', password: '$2b$10$...', role: 'admin' },
-    { id: 2, username: 'emmang', password: '$2b$10$...', role: 'user' },
+    { id: 1, username: 'admin@gmail.com', password: '$2b$10$...', role: 'admin' },
+    { id: 2, username: 'emmang@gmail.com', password: '$2b$10$...', role: 'user' },
 ];
 
-if (!users[0].password.includes('2a')) {
+if (!users[0].password.includes('2b')) {
     users[0].password = bcrypt.hashSync('admin123', 10);
     users[1].password = bcrypt.hashSync('user123', 10);
 }
+
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 //Auth Routes
 
@@ -68,7 +74,7 @@ app.post('/api/login', async (req, res) => {
     const token = jwt.sign(
         { id: user.id, username: user.username, role: user.role },
         SECRET_KEY,
-        { expiresIn: '2minutes' }
+        { expiresIn: '2m' }
     )
     res.json({ message: 'Login successful', token });
 });
@@ -118,7 +124,7 @@ function authorizeRole(role) {
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
     console.log(`Try logging in with:`);
-    console.log(`    Admin:  username: admin, password: admin123`);
-    console.log(`     User: username: emmang, password: user123`);
+    console.log(`    Admin:  username: admin@gmail.com, password: admin123`);
+    console.log(`     User: username: emmang@gmail.com, password: user123`);
 
 });
