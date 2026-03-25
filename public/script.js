@@ -422,7 +422,16 @@ function renderEmployees() {
 }
 
 function editEmployee(id) {
-    showToast('Employee edit feature coming soon', 'info');
+    const emp = window.db.employees.find(e => e.id === id);
+    if (!emp) return;
+    document.getElementById('employee-id').value = emp.employeeId;
+    document.getElementById('employee-email').value = emp.userEmail;
+    document.getElementById('employee-position').value = emp.position;
+    document.getElementById('employee-department').value = emp.departmentId;
+    document.getElementById('employee-hire-date').value = emp.hireDate;
+    document.getElementById('employee-edit-id').value = id;
+    const modal = new bootstrap.Modal(document.getElementById('addEmployeeModal'));
+    modal.show();
 }
 
 function deleteEmployee(id) {
@@ -525,23 +534,33 @@ function resetPassword(id) {
 // ─── REQUESTS ────────────────────────────────────────────
 
 function renderRequests() {
-    const tbody = document.getElementById('requests-table-body');
+    const container = document.getElementById('requests-content'); // ✅ correct ID
     if (window.db.requests.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No requests yet.</td></tr>';
+        container.innerHTML = '<p class="text-muted text-center mt-4">No requests yet.</p>';
         return;
     }
-    tbody.innerHTML = window.db.requests.map(req => `
-        <tr>
-            <td>${req.id}</td>
-            <td>${req.type}</td>
-            <td>${req.status}</td>
-            <td>${new Date(req.createdAt).toLocaleDateString()}</td>
-            <td>${req.items.map(i => `${i.name} (${i.qty})`).join(', ')}</td>
-            <td class="action-buttons">
-                <button class="btn btn-sm btn-outline-primary" onclick="showRequest('${req.id}')">View</button>
-            </td>
-        </tr>
-    `).join('');
+
+    container.innerHTML = `
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th><th>Type</th><th>Status</th><th>Date</th><th>Items</th><th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${window.db.requests.map(req => `
+                    <tr>
+                        <td>${req.id}</td>
+                        <td>${req.type}</td>
+                        <td><span class="badge status-${req.status.toLowerCase()}">${req.status}</span></td>
+                        <td>${new Date(req.createdAt).toLocaleDateString()}</td>
+                        <td>${req.items.map(i => `${i.name} (${i.qty})`).join(', ')}</td>
+                        <td><button class="btn btn-sm btn-outline-primary" onclick="showRequest('${req.id}')">View</button></td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
 }
 
 function showRequest(id) {
@@ -554,8 +573,45 @@ function showRequest(id) {
 
 function handleEmployeeForm(e) {
     e.preventDefault();
-    showToast('Employee form submission feature pending', 'info');
-    document.getElementById('employee-form').reset();
+
+    const employeeId = document.getElementById('employee-id').value.trim();
+    const userEmail = document.getElementById('employee-email').value.trim().toLowerCase();
+    const position = document.getElementById('employee-position').value.trim();
+    const departmentValue = document.getElementById('employee-department').value;
+    const hireDate = document.getElementById('employee-hire-date').value;
+    const editId = document.getElementById('employee-edit-id').value;
+
+    if (!employeeId || !userEmail || !position || !departmentValue || !hireDate) {
+        showToast('Please fill in all fields', 'danger');
+        return;
+    }
+
+    if (editId) {
+        const emp = window.db.employees.find(e => e.id === editId);
+        if (emp) {
+            emp.employeeId = employeeId;
+            emp.userEmail = userEmail;
+            emp.position = position;
+            emp.departmentId = departmentValue;
+            emp.hireDate = hireDate;
+        }
+    } else {
+        window.db.employees.push({
+            id: generateId(),
+            employeeId,
+            userEmail,
+            position,
+            departmentId: departmentValue,
+            hireDate
+        });
+    }
+
+    saveToStorage();
+    renderEmployees();
+
+    const modal = bootstrap.Modal.getInstance(document.getElementById('addEmployeeModal'));
+    modal.hide();
+    showToast('Employee saved successfully!', 'success');
 }
 
 function handleDepartmentForm(e) {
@@ -587,14 +643,81 @@ function handleDepartmentForm(e) {
 
 function handleAccountForm(e) {
     e.preventDefault();
-    showToast('Account form submission feature pending', 'info');
-    document.getElementById('account-form').reset();
+
+    const firstName = document.getElementById('account-firstname').value.trim();
+    const lastName = document.getElementById('account-lastname').value.trim();
+    const email = document.getElementById('account-email').value.trim().toLowerCase();
+    const password = document.getElementById('account-password').value;
+    const role = document.getElementById('account-role').value.toLowerCase(); // 'admin' or 'user'
+    const verified = document.getElementById('account-verified').checked;
+    const editId = document.getElementById('account-edit-id').value;
+
+    if (editId) {
+        const acc = window.db.accounts.find(a => a.id === editId);
+        if (acc) {
+            acc.firstName = firstName;
+            acc.lastName = lastName;
+            acc.email = email;
+            acc.role = role;
+            acc.verified = verified;
+        }
+    } else {
+        if (!password || password.length < 6) {
+            showToast('Password must be at least 6 characters', 'danger');
+            return;
+        }
+        window.db.accounts.push({
+            id: email,
+            firstName,
+            lastName,
+            email,
+            role,
+            verified
+        });
+    }
+
+    saveToStorage();
+    renderAccounts();
+
+    const modal = bootstrap.Modal.getInstance(document.getElementById('addAccountModal'));
+    modal.hide();
+    showToast('Account saved successfully!', 'success');
 }
 
 function handleRequestForm(e) {
     e.preventDefault();
-    showToast('Request form submission feature pending', 'info');
-    document.getElementById('request-form').reset();
+    if (!currentUser) return;
+
+    const type = document.getElementById('request-type').value;
+    const itemRows = document.querySelectorAll('.request-item-row');
+    const items = [];
+
+    itemRows.forEach(row => {
+        const name = row.querySelector('.item-name').value.trim();
+        const qty = parseInt(row.querySelector('.item-qty').value);
+        if (name) items.push({ name, qty });
+    });
+
+    if (items.length === 0) {
+        showToast('Please add at least one item', 'danger');
+        return;
+    }
+
+    window.db.requests.push({
+        id: generateId(),
+        type,
+        status: 'Pending',
+        createdAt: new Date().toISOString(),
+        userEmail: currentUser.email,
+        items
+    });
+
+    saveToStorage();
+    renderRequests();
+
+    const modal = bootstrap.Modal.getInstance(document.getElementById('addRequestModal'));
+    modal.hide();
+    showToast('Request submitted!', 'success');
 }
 
 function addRequestItem() {
